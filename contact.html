@@ -29,11 +29,32 @@
 
   <p class="lead">성적 계산기를 이용해 주셔서 감사합니다. 서비스 개선 제안, 계산 오류 신고, 개인정보 관련 문의 등 어떤 의견이든 환영합니다.</p>
 
-  <h2>이메일 문의</h2>
-  <p>아래 이메일로 연락해 주시면 확인 후 답변드리겠습니다.</p>
-  <div class="note">
-    📧 <strong><a href="mailto:your-email@example.com">your-email@example.com</a></strong><br>
-    <span style="font-size:13px;">※ 배포 전 위 주소를 실제 사용하실 이메일로 교체하세요.</span>
+  <h2>문의 보내기</h2>
+  <p>아래 양식을 작성해 보내주시면 입력하신 이메일로 답변드리겠습니다.</p>
+
+  <!-- Formspree 폼: YOUR_FORM_ID 를 본인 Formspree 폼 ID로 교체하세요 (formspree.io 가입 → 폼 생성 시 발급) -->
+  <form class="contact-form" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+    <div class="row">
+      <label for="cf-name">이름</label>
+      <input id="cf-name" type="text" name="name" placeholder="홍길동" required>
+    </div>
+    <div class="row">
+      <label for="cf-email">답변받을 이메일</label>
+      <input id="cf-email" type="email" name="email" placeholder="you@example.com" required>
+    </div>
+    <div class="row">
+      <label for="cf-message">문의 내용</label>
+      <textarea id="cf-message" name="message" placeholder="문의하실 내용을 자세히 적어주세요." required></textarea>
+    </div>
+    <!-- 메일 제목 및 스팸 방지(허니팟) -->
+    <input type="hidden" name="_subject" value="[성적 계산기] 새 문의가 도착했습니다">
+    <input class="hp" type="text" name="_gotcha" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <button type="submit">문의 보내기</button>
+  </form>
+
+  <div class="note" style="font-size:13px;">
+    ※ 폼을 사용하려면 <a href="https://formspree.io/" target="_blank" rel="noopener">formspree.io</a>에 가입해 새 폼을 만들고, 위
+    <strong>action</strong>의 <strong>YOUR_FORM_ID</strong>를 발급받은 폼 ID로 교체하세요. 처음 제출 시 Formspree가 보내는 확인 메일을 인증하면 이후 문의가 메일로 전달됩니다.
   </div>
 
   <h2>문의하실 때 도움이 되는 정보</h2>

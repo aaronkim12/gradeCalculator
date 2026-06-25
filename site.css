@@ -101,6 +101,28 @@
 .faq dt{font-weight:700;margin-top:16px;}
 .faq dd{margin:4px 0 0;color:var(--ink-soft);}
 
+/* ---------- 문의 폼 (Formspree) ---------- */
+.contact-form{display:flex;flex-direction:column;gap:15px;margin:18px 0 6px;}
+.contact-form .row{display:flex;flex-direction:column;gap:6px;}
+.contact-form label{font-size:14px;font-weight:500;color:var(--ink);}
+.contact-form input,.contact-form textarea{
+  font-family:inherit;font-size:15px;color:var(--ink);background:var(--card);
+  border:1.5px solid var(--line-strong);border-radius:8px;padding:11px 13px;width:100%;
+  transition:border-color .15s, box-shadow .15s, background-color .35s;
+}
+.contact-form input:focus,.contact-form textarea:focus{
+  outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);
+}
+.contact-form textarea{min-height:140px;resize:vertical;}
+.contact-form button{
+  align-self:flex-start;background:var(--ink);color:var(--paper);border:none;
+  font-size:15px;padding:13px 32px;border-radius:8px;cursor:pointer;font-family:inherit;
+  transition:opacity .15s, transform .1s;
+}
+.contact-form button:hover{opacity:.88;}
+.contact-form button:active{transform:translateY(1px);}
+.contact-form .hp{position:absolute;left:-9999px;top:-9999px;height:0;overflow:hidden;}
+
 /* ---------- 광고 영역 ---------- */
 .ad-slot{
   max-width:780px;margin:18px auto;padding:10px;text-align:center;
