@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- example.com 을 실제 배포 도메인으로 교체하세요 -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://example.com/index.html</loc><changefreq>monthly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://example.com/about.html</loc><changefreq>yearly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://example.com/privacy.html</loc><changefreq>yearly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://example.com/terms.html</loc><changefreq>yearly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://example.com/contact.html</loc><changefreq>yearly</changefreq><priority>0.5</priority></url>
+</urlset>

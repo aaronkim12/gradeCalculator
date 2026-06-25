@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>성적 계산기 — 중간·수행·기말 점수로 등급과 목표 점수 계산</title>
+<meta name="description" content="중간고사·수행평가·기말고사 점수와 반영 비율을 입력하면 최종 점수와 등급(A·B·C·D)을 자동 계산하고, 원하는 등급에 필요한 점수까지 알려주는 무료 성적 계산기입니다. 차트 시각화와 PDF 저장을 지원합니다." />
+<link rel="canonical" href="https://example.com/index.html" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+<!-- Google AdSense: 승인 후 ca-pub-XXXXXXXXXXXXXXXX 를 본인 게시자 ID로 교체하세요 -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#2a2724;
+    --ink-soft:#585249;
+    --line:#e2ddd0;
+    --line-strong:#cdc6b5;
+    --paper:#fffdf8;
+    --paper-edge:#f6f2e9;
+    --card:#ffffff;
+    --accent:#356195;
+    --accent-soft:#e9f0f8;
+    --good:#27764f;
+    --warn:#b54a23;
+    --gradeA:#27764f; --gradeB:#356195; --gradeC:#a87c14; --gradeD:#b54a23; --gradeF:#a33;
+    --shadow:0 10px 40px rgba(60,50,30,.12), 0 2px 8px rgba(60,50,30,.06);
+    --bg1:#f0ead9; --bg2:#ece5d2; --bg3:#e8e1cf;
+    --margin-line:#e7b0a0;
+  }
+  [data-theme="dark"]{
+    --ink:#ece8de;
+    --ink-soft:#a59e90;
+    --line:#3b3934;
+    --line-strong:#524f47;
+    --paper:#24231f;
+    --paper-edge:#2b2a25;
+    --card:#2e2c27;
+    --accent:#7fb0e6;
+    --accent-soft:#2b3644;
+    --good:#5fcc94;
+    --warn:#e8916a;
+    --gradeA:#5fcc94; --gradeB:#7fb0e6; --gradeC:#dcb24e; --gradeD:#e8916a; --gradeF:#e07a7a;
+    --shadow:0 12px 44px rgba(0,0,0,.5), 0 2px 10px rgba(0,0,0,.3);
+    --bg1:#1c1b18; --bg2:#222019; --bg3:#17160f;
+    --margin-line:#7a4a42;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  html,body{overflow-x:hidden;max-width:100%;}
+  body{
+    font-family:'Noto Sans KR',sans-serif;
+    color:var(--ink);
+    font-size:15px;line-height:1.6;
+    background:
+      radial-gradient(circle at 20% 10%, var(--bg1) 0%, transparent 40%),
+      radial-gradient(circle at 90% 80%, var(--bg2) 0%, transparent 45%),
+      var(--bg3);
+    min-height:100vh;
+    padding:40px 16px 80px;
+    -webkit-font-smoothing:antialiased;
+    transition:background-color .35s ease, color .35s ease;
+  }
+  .sheet{
+    max-width:860px;margin:0 auto;background:var(--paper);
+    border-radius:6px;box-shadow:var(--shadow);
+    padding:48px 52px 56px;position:relative;overflow:hidden;
+    background-image:linear-gradient(var(--paper) 0px, var(--paper) 31px, var(--paper-edge) 32px);
+    background-size:100% 32px;
+    animation:sheetIn .7s cubic-bezier(.22,1,.36,1) both;
+    transition:background-color .35s ease;
+  }
+
+  /* ---------- 애니메이션 ---------- */
+  @keyframes sheetIn{from{opacity:0;transform:translateY(26px) scale(.985);}to{opacity:1;transform:none;}}
+  @keyframes riseIn{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:none;}}
+  @keyframes stampIn{
+    0%{opacity:0;transform:scale(2.4) rotate(-18deg);}
+    55%{opacity:1;transform:scale(.86) rotate(4deg);}
+    75%{transform:scale(1.06) rotate(-2deg);}
+    100%{opacity:1;transform:scale(1) rotate(0);}
+  }
+  @keyframes popNum{0%{transform:scale(1);}40%{transform:scale(1.14);}100%{transform:scale(1);}}
+  @keyframes toastIn{from{opacity:0;transform:translate(-50%,18px);}to{opacity:1;transform:translate(-50%,0);}}
+  .reveal{animation:riseIn .55s cubic-bezier(.22,1,.36,1) both;}
+  .grade-stamp.pop{animation:stampIn .6s cubic-bezier(.34,1.56,.64,1) both;}
+  .score-big.bump{animation:popNum .35s ease;}
+  @media(prefers-reduced-motion:reduce){
+    *{animation:none !important;transition:none !important;}
+  }
+  .sheet::before{
+    content:"";position:absolute;left:42px;top:0;bottom:0;width:1px;
+    background:var(--margin-line);opacity:.4;
+  }
+  header.head{text-align:center;border-bottom:2px solid var(--ink);padding-bottom:18px;margin-bottom:6px;}
+  header.head h1{font-family:'Gowun Batang',serif;font-size:30px;margin:0 0 6px;letter-spacing:2px;}
+  header.head p{margin:0;color:var(--ink-soft);font-size:13px;letter-spacing:1px;}
+  .subject-row{display:flex;gap:10px;align-items:center;justify-content:center;margin:22px 0 8px;}
+  .subject-row input{
+    font-family:'Gowun Batang',serif;font-size:20px;text-align:center;
+    border:none;border-bottom:1.5px dashed var(--line-strong);
+    background:transparent;padding:4px 8px;width:240px;color:var(--ink);
+  }
+  .subject-row input:focus{outline:none;border-bottom-color:var(--accent);}
+
+  h2.section-title{
+    font-family:'Gowun Batang',serif;font-size:18.5px;font-weight:700;margin:36px 0 14px;
+    display:flex;align-items:center;gap:10px;padding-bottom:8px;border-bottom:1px solid var(--line);
+  }
+  h2.section-title::before{content:"";width:13px;height:13px;background:var(--accent);border-radius:3px;display:inline-block;transform:rotate(45deg);flex:none;}
+  .hint{font-size:12.5px;color:var(--ink-soft);font-weight:400;margin-left:auto;font-family:'Noto Sans KR';}
+
+  /* Weights table */
+  table{width:100%;border-collapse:collapse;}
+  .grid th,.grid td{padding:10px 8px;text-align:center;border-bottom:1px solid var(--line);font-size:14px;}
+  .grid th{font-weight:500;color:var(--ink-soft);font-size:12px;text-transform:uppercase;letter-spacing:.5px;}
+  .grid td:first-child,.grid th:first-child{text-align:left;padding-left:4px;}
+  .name-cell{font-weight:500;}
+  input.num{
+    width:62px;text-align:center;border:1px solid var(--line-strong);border-radius:5px;
+    padding:6px 4px;font-size:14px;font-family:'Noto Sans KR';background:var(--card);color:var(--ink);
+    transition:border-color .15s, box-shadow .15s, background-color .35s;
+  }
+  input.num:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  input.num.wide{width:74px;}
+  .pct-cell{font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;}
+  .weight-sum{margin-top:10px;font-size:13px;text-align:right;color:var(--ink-soft);}
+  .weight-sum b{font-size:15px;}
+  .weight-sum.ok b{color:var(--good);}
+  .weight-sum.bad b{color:var(--warn);}
+
+  /* Score cards */
+  .card{
+    border:1px solid var(--line);border-radius:8px;padding:16px 18px;margin-bottom:14px;
+    background:var(--card);
+    transition:box-shadow .25s, transform .25s, border-color .25s, background-color .35s;
+  }
+  .card:hover{box-shadow:0 6px 22px rgba(60,50,30,.08);border-color:var(--line-strong);transform:translateY(-1px);}
+  .card:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .card-head{display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap;}
+  .card-head .nm{font-weight:700;font-size:15px;}
+  .card-head .wt{font-size:12px;color:var(--ink-soft);background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:20px;}
+  .toggle{margin-left:auto;display:inline-flex;border:1px solid var(--line-strong);border-radius:20px;overflow:hidden;font-size:12px;}
+  .toggle button{border:none;background:transparent;padding:5px 12px;cursor:pointer;color:var(--ink-soft);font-family:'Noto Sans KR';}
+  .toggle button.active{background:var(--accent);color:#fff;}
+  .score-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0;font-size:14px;}
+  .score-line label{min-width:70px;color:var(--ink-soft);font-size:13px;}
+  .score-line .sep{color:var(--ink-soft);}
+  .score-line .res{margin-left:auto;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;}
+  .perf-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;}
+  @media(max-width:560px){.perf-grid{grid-template-columns:1fr;}}
+
+  /* Result */
+  .result-box{
+    margin-top:30px;border:2px solid var(--ink);border-radius:10px;padding:26px;
+    display:grid;grid-template-columns:auto minmax(0,1fr);gap:28px;align-items:center;background:var(--card);
+  }
+  @media(max-width:560px){.result-box{grid-template-columns:1fr;text-align:center;justify-items:center;}}
+  .final-info{min-width:0;}
+  .grade-stamp{
+    width:130px;height:130px;border-radius:50%;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;border:4px solid currentColor;position:relative;
+  }
+  .grade-stamp .g{font-family:'Gowun Batang',serif;font-size:58px;font-weight:700;line-height:1;}
+  .grade-stamp .lbl{font-size:11px;letter-spacing:2px;margin-top:4px;}
+  .final-info .score-label{font-size:12px;color:var(--ink-soft);letter-spacing:1px;margin-bottom:2px;}
+  .final-info .score-big{font-size:46px;font-family:'Gowun Batang',serif;font-weight:700;}
+  .final-info .score-big span{font-size:20px;color:var(--ink-soft);}
+  .final-info .desc{color:var(--ink-soft);font-size:13px;margin-top:4px;}
+  .breakdown{margin-top:16px;min-width:0;}
+  .breakdown .brow{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:5px 0;border-bottom:1px dotted var(--line);flex-wrap:wrap;}
+  .breakdown .brow b{font-variant-numeric:tabular-nums;word-break:keep-all;overflow-wrap:anywhere;text-align:right;}
+  .final-info .desc{word-break:keep-all;overflow-wrap:anywhere;}
+
+  /* 목표 시뮬레이터 */
+  .projection{margin-top:18px;border:1.5px dashed var(--line-strong);border-radius:10px;padding:20px 22px;background:var(--card);transition:background-color .35s;}
+  .projection .ph{font-family:'Gowun Batang',serif;font-size:16px;margin:0 0 4px;display:flex;align-items:center;gap:8px;}
+  .projection .psub{font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;line-height:1.6;}
+  .projection .psub b{color:var(--ink);}
+  .range-bar{height:14px;border-radius:8px;background:linear-gradient(90deg,#e8e1cf,#d2ccbd);position:relative;margin:10px 0 18px;overflow:hidden;}
+  .range-bar .fill{position:absolute;top:0;bottom:0;background:linear-gradient(90deg,#7fae9a,#3a6ea5);opacity:.85;transition:left .5s cubic-bezier(.22,1,.36,1),width .5s cubic-bezier(.22,1,.36,1);}
+  .range-bar .now{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink);transition:left .5s cubic-bezier(.22,1,.36,1);}
+  .goal-table{width:100%;border-collapse:collapse;}
+  .goal-table th,.goal-table td{padding:9px 8px;font-size:13px;border-bottom:1px solid var(--line);text-align:center;}
+  .goal-table th{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.5px;font-weight:500;}
+  .goal-table td:first-child,.goal-table th:first-child{text-align:left;}
+  .goal-table .gbadge{display:inline-block;width:24px;height:24px;line-height:24px;border-radius:6px;color:#fff;font-family:'Gowun Batang',serif;font-weight:700;text-align:center;}
+  .goal-need{font-weight:700;font-variant-numeric:tabular-nums;}
+  .goal-status{font-size:12px;padding:2px 9px;border-radius:20px;white-space:nowrap;}
+  .st-locked{background:#e3f1ea;color:var(--good);}
+  .st-need{background:var(--accent-soft);color:var(--accent);}
+  .st-imposs{background:#f1ece4;color:var(--ink-soft);}
+
+  .goal-picker{margin:18px 0 10px;}
+  .goal-picker .pl{font-size:12.5px;color:var(--ink-soft);margin-bottom:8px;}
+  .goal-picker .pbtns{display:flex;gap:8px;flex-wrap:wrap;}
+  .goal-picker .pbtns button{
+    border:1.5px solid var(--line-strong);background:var(--card);color:var(--ink);
+    border-radius:8px;padding:8px 16px;cursor:pointer;font-family:'Gowun Batang',serif;
+    font-size:16px;font-weight:700;min-width:46px;transition:all .12s;
+  }
+  .goal-picker .pbtns button.active{color:#fff;border-color:transparent;transform:translateY(-1px);}
+  .goal-picker .pbtns button:disabled{opacity:.4;cursor:not-allowed;}
+  .need-list{margin-top:14px;display:flex;flex-direction:column;gap:8px;}
+  .need-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);flex-wrap:wrap;transition:background-color .35s,transform .15s;}
+  .need-item:hover{transform:translateX(2px);}
+  .need-item .nin{font-weight:500;font-size:14px;min-width:90px;}
+  .need-item .nmax{font-size:12px;color:var(--ink-soft);}
+  .need-item .nval{margin-left:auto;font-weight:700;font-size:16px;font-variant-numeric:tabular-nums;}
+  .need-item .nval small{font-size:12px;color:var(--ink-soft);font-weight:400;}
+  .need-msg{padding:12px 14px;border-radius:8px;font-size:13.5px;line-height:1.55;}
+  .need-msg.ok{background:#e3f1ea;color:var(--good);}
+  .need-msg.no{background:#f8eae3;color:var(--warn);}
+
+  .charts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;margin-top:28px;}
+  @media(max-width:560px){.charts{grid-template-columns:1fr;}}
+  .chart-box{border:1px solid var(--line);border-radius:8px;padding:14px;background:var(--card);min-width:0;transition:background-color .35s;}
+  .chart-box canvas{max-width:100%;}
+  .chart-box h3{margin:0 0 8px;font-size:13px;color:var(--ink-soft);text-align:center;font-weight:500;}
+
+  .actions{margin-top:34px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+  button.btn{
+    font-family:'Noto Sans KR';font-size:14px;padding:12px 26px;border-radius:8px;cursor:pointer;
+    border:1.5px solid var(--ink);background:var(--ink);color:#fff;transition:transform .1s,opacity .15s;
+  }
+  button.btn.ghost{background:transparent;color:var(--ink);}
+  button.btn:hover{opacity:.88;}
+  button.btn:active{transform:translateY(1px);}
+
+  .grade-scale{margin-top:8px;font-size:12px;color:var(--ink-soft);display:flex;gap:14px;flex-wrap:wrap;justify-content:flex-end;}
+  .grade-scale span{display:inline-flex;align-items:center;gap:4px;}
+  .grade-scale i{width:10px;height:10px;border-radius:2px;display:inline-block;}
+
+  .footer-note{text-align:center;color:var(--ink-soft);font-size:11px;margin-top:30px;letter-spacing:.5px;}
+
+  /* 테마 토글 스타일은 site.css 의 .theme-toggle 을 사용 (네비게이션 바 안에 위치) */
+
+  /* 결과 계산 영역 */
+  .calc-zone{margin:30px 0 4px;text-align:center;}
+  .calc-note{
+    font-size:13.5px;line-height:1.65;color:var(--ink-soft);background:var(--accent-soft);
+    border:1px solid var(--line);border-radius:10px;padding:13px 16px;margin-bottom:14px;
+    transition:background-color .35s;
+  }
+  .calc-note b{color:var(--accent);}
+  .calc-note.complete{color:var(--good);}
+  .calc-btn{
+    font-size:16px;padding:14px 40px;letter-spacing:.5px;
+    box-shadow:0 6px 18px rgba(53,97,149,.28);
+  }
+  .calc-btn:hover{box-shadow:0 8px 24px rgba(53,97,149,.38);}
+  /* 결과 래퍼 - 펼침 애니메이션 */
+  .results-wrap{overflow:hidden;}
+  .results-wrap.hidden{display:none;}
+  .results-wrap.show > *{animation:riseIn .55s cubic-bezier(.22,1,.36,1) both;}
+  .results-wrap.show > *:nth-child(2){animation-delay:.05s;}
+  .results-wrap.show > *:nth-child(3){animation-delay:.12s;}
+  .results-wrap.show > *:nth-child(4){animation-delay:.2s;}
+  .results-wrap.show > *:nth-child(5){animation-delay:.28s;}
+
+  /* 토스트 알림 */
+  .toast{
+    position:fixed;left:50%;bottom:34px;transform:translate(-50%,0);
+    background:var(--ink);color:var(--paper);padding:13px 22px;border-radius:30px;
+    font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.3);z-index:50;
+    animation:toastIn .35s cubic-bezier(.22,1,.36,1) both;
+  }
+
+  /* ---------- 반응형 (태블릿/모바일) ---------- */
+  @media(max-width:680px){
+    body{padding:16px 8px 60px;}
+    .sheet{padding:30px 20px 36px;background-size:100% 30px;
+      background-image:linear-gradient(var(--paper) 0px, var(--paper) 29px, var(--paper-edge) 30px);}
+    .sheet::before{left:14px;}
+    header.head h1{font-size:24px;letter-spacing:1px;}
+    h2.section-title{font-size:15px;flex-wrap:wrap;}
+    h2.section-title .hint{margin-left:0;flex-basis:100%;}
+    .subject-row input{width:100%;max-width:260px;font-size:18px;}
+    .grid th,.grid td{padding:8px 4px;font-size:13px;}
+  }
+  @media(max-width:560px){
+    .result-box{padding:20px 16px;gap:18px;}
+    .grade-stamp{width:104px;height:104px;}
+    .grade-stamp .g{font-size:46px;}
+    .final-info .score-big{font-size:38px;}
+    .final-info .score-big span{font-size:16px;}
+    .final-info .desc{font-size:12px;}
+    .breakdown .brow{font-size:12px;flex-wrap:wrap;gap:2px;}
+    .projection{padding:16px 14px;}
+    .goal-table th,.goal-table td{padding:8px 4px;font-size:12px;}
+    .goal-table .gbadge{width:20px;height:20px;line-height:20px;}
+    .goal-status{font-size:11px;padding:2px 6px;}
+    .card{padding:14px;}
+    .card-head{gap:8px;}
+    .toggle{margin-left:0;flex-basis:100%;}
+    .toggle button{flex:1;padding:6px 4px;}
+    .perf-grid{grid-template-columns:1fr;}
+    .score-line label{min-width:54px;}
+    .grade-scale{justify-content:flex-start;gap:10px;}
+    .actions{flex-direction:column;align-items:stretch;}
+    button.btn{width:100%;}
+  }
+  /* 아주 좁은 화면: 표 가로 스크롤 허용 */
+  @media(max-width:380px){
+    .goal-table{display:block;overflow-x:auto;white-space:nowrap;}
+  }
+</style>
+</head>
+<body>
+<nav class="site-nav">
+  <a class="brand" href="index.html">📄 성적 계산기</a>
+  <div class="nav-links">
+    <a href="index.html" class="active">홈</a>
+    <a href="about.html">소개</a>
+    <a href="privacy.html">개인정보처리방침</a>
+    <a href="terms.html">이용약관</a>
+    <a href="contact.html">연락처</a>
+  </div>
+  <span class="spacer"></span>
+  <button id="themeToggle" class="theme-toggle" title="다크/라이트 모드 전환" aria-label="테마 전환">🌙</button>
+</nav>
+
+<div class="sheet" id="sheet">
+  <header class="head">
+    <h1>성 적 표</h1>
+    <p>GRADE REPORT · 성적 계산 및 시각화</p>
+  </header>
+
+  <div class="subject-row">
+    <input id="subjectName" type="text" placeholder="과목명을 입력하세요" value="" />
+  </div>
+
+  <!-- 1. 반영 비율 -->
+  <h2 class="section-title">반영 비율 설정
+    <span class="hint">합계가 100%가 되도록 입력하세요</span>
+  </h2>
+  <table class="grid">
+    <thead>
+      <tr><th>평가 항목</th><th>반영 비율 (%)</th></tr>
+    </thead>
+    <tbody id="weightBody"></tbody>
+  </table>
+  <div class="weight-sum" id="weightSum"></div>
+
+  <!-- 2. 점수 입력 -->
+  <h2 class="section-title">점수 입력
+    <span class="hint">시험은 객관식·서술형 분리 또는 통합 입력</span>
+  </h2>
+  <div id="scoreCards"></div>
+
+  <!-- 결과 계산 버튼 영역 -->
+  <div class="calc-zone">
+    <div class="calc-note" id="calcNote"></div>
+    <button class="btn calc-btn" id="calcBtn">📊 결과 계산하기</button>
+  </div>
+
+  <!-- 3. 결과 (계산 버튼을 누르면 표시) -->
+  <div class="results-wrap hidden" id="results">
+  <h2 class="section-title">최종 결과
+    <span class="hint" id="cutoffHint"></span>
+  </h2>
+  <div class="grade-scale" id="gradeScale"></div>
+  <div class="result-box" id="resultBox">
+    <div class="grade-stamp" id="gradeStamp" style="color:var(--ink-soft)">
+      <div class="g" id="gradeLetter">–</div>
+      <div class="lbl">GRADE</div>
+    </div>
+    <div class="final-info">
+      <div class="score-label" id="scoreLabel">최종 점수</div>
+      <div class="score-big"><span id="finalScore">0.0</span><span> / 100</span></div>
+      <div class="desc" id="finalDesc">점수를 입력하면 자동으로 계산됩니다.</div>
+      <div class="breakdown" id="breakdown"></div>
+    </div>
+  </div>
+
+  <!-- 목표 점수 시뮬레이터 (일부만 입력했을 때) -->
+  <div id="projection" class="projection" style="display:none;"></div>
+
+  <!-- 4. 시각화 -->
+  <div class="charts">
+    <div class="chart-box">
+      <h3>항목별 점수 (100점 환산)</h3>
+      <canvas id="barChart" height="200"></canvas>
+    </div>
+    <div class="chart-box">
+      <h3>최종 점수 기여도</h3>
+      <canvas id="donutChart" height="200"></canvas>
+    </div>
+  </div>
+  </div><!-- /results -->
+
+  <div class="footer-note" id="dateNote"></div>
+</div>
+
+<div class="actions">
+  <button class="btn" id="shareBtn">📤 성적표 공유</button>
+  <button class="btn ghost" id="pdfBtn">📄 PDF로 다운로드</button>
+  <button class="btn ghost" id="resetBtn">초기화</button>
+</div>
+
+<!-- 광고 영역 (승인 후 data-ad-slot 값을 본인 광고 단위 ID로 교체하세요) -->
+<div class="ad-slot">
+  <div class="ad-label">광고 (Advertisement)</div>
+  <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX" data-ad-format="auto" data-full-width-responsive="true"></ins>
+  <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+</div>
+
+<!-- 본문 콘텐츠: 사용법 안내 · 성적 산출 방식 · 자주 묻는 질문 -->
+<article class="content-sheet">
+  <h1>성적 계산기 사용법과 성적 산출 방식</h1>
+  <p class="lead">이 도구는 학교 성적이 결정되는 방식을 그대로 본떠, 시험 점수와 반영 비율만 입력하면 최종 점수·등급은 물론 “목표 등급에 필요한 점수”까지 계산해 줍니다. 아래 안내를 보면 처음 쓰는 분도 1분 안에 결과를 얻을 수 있습니다.</p>
+
+  <h2>1. 사용 방법 (3단계)</h2>
+  <ol>
+    <li><strong>반영 비율 설정</strong> — 중간고사, 수행평가 2개, 기말고사가 최종 성적에서 차지하는 비율(%)을 입력합니다. 합계가 100%가 되도록 맞추면 가장 정확합니다.</li>
+    <li><strong>점수 입력</strong> — 각 평가의 획득 점수와 만점을 적습니다. 중간·기말고사는 객관식과 서술형을 따로 입력하거나, 한 번에 합산해 입력할 수 있습니다. 아직 보지 않은 시험은 비워 두세요.</li>
+    <li><strong>결과 계산</strong> — ‘결과 계산하기’ 버튼을 누르면 최종 점수, 등급, 그리고 차트가 나타납니다. PDF로 저장하거나 링크로 공유할 수도 있습니다.</li>
+  </ol>
+
+  <h2>2. 최종 점수는 어떻게 계산되나요?</h2>
+  <p>각 평가의 <strong>득점률(획득 점수 ÷ 만점)</strong>에 그 평가의 <strong>반영 비율</strong>을 곱해 모두 더합니다. 예를 들어 다음과 같이 입력했다면,</p>
+  <ul>
+    <li>중간고사 90점 / 100점 (반영 30%) → 90% × 0.30 = 27점</li>
+    <li>수행평가 1 : 18점 / 20점 (반영 20%) → 90% × 0.20 = 18점</li>
+    <li>수행평가 2 : 16점 / 20점 (반영 20%) → 80% × 0.20 = 16점</li>
+    <li>기말고사 85점 / 100점 (반영 30%) → 85% × 0.30 = 25.5점</li>
+  </ul>
+  <p>최종 점수는 <strong>27 + 18 + 16 + 25.5 = 86.5점</strong>이 되고, 아래 등급 기준에 따라 <strong>B</strong> 등급이 됩니다.</p>
+
+  <h2>3. 등급 기준</h2>
+  <p>기본 등급 기준은 다음과 같습니다(필요에 맞게 코드에서 조정할 수 있습니다).</p>
+  <ul>
+    <li><strong>A</strong> : 90점 이상</li>
+    <li><strong>B</strong> : 80점 이상 ~ 90점 미만</li>
+    <li><strong>C</strong> : 70점 이상 ~ 80점 미만</li>
+    <li><strong>D</strong> : 60점 이상 ~ 70점 미만</li>
+    <li><strong>E</strong> : 60점 미만</li>
+  </ul>
+
+  <h2>4. “A를 받으려면 몇 점?” — 목표 점수 시뮬레이터</h2>
+  <p>일부 시험만 보았고 나머지는 아직 남았다면, 미입력 항목을 비워 둔 채 계산해 보세요. 도구가 <strong>지금까지의 누적 점수</strong>와 <strong>달성 가능한 점수 범위</strong>를 보여 주고, 목표 등급(A·B·C·D)을 고르면 <strong>남은 시험에서 받아야 할 점수</strong>를 항목별로 알려 줍니다. 학습 계획을 세울 때 특히 유용합니다.</p>
+
+  <h2>자주 묻는 질문 (FAQ)</h2>
+  <dl class="faq">
+    <dt>입력한 점수가 서버에 저장되나요?</dt>
+    <dd>아니요. 모든 계산은 이용자의 브라우저 안에서 이루어지며 서버로 전송·저장되지 않습니다. 자세한 내용은 <a href="privacy.html">개인정보처리방침</a>을 참고하세요.</dd>
+
+    <dt>객관식이나 서술형 중 하나만 입력해도 되나요?</dt>
+    <dd>네. 한쪽만 입력하면 입력한 영역을 기준으로 환산한 <strong>예상 점수</strong>가 표시됩니다.</dd>
+
+    <dt>반영 비율 합계가 100%가 아니어도 되나요?</dt>
+    <dd>계산은 되지만, 100점 만점 기준의 정확한 결과를 위해서는 합계를 100%로 맞추는 것을 권장합니다.</dd>
+
+    <dt>결과를 친구와 공유할 수 있나요?</dt>
+    <dd>‘성적표 공유’ 버튼을 누르면 입력 내용이 담긴 링크가 생성됩니다. PDF로 저장해 전달할 수도 있습니다.</dd>
+
+    <dt>이 도구는 무료인가요?</dt>
+    <dd>네, 완전히 무료입니다. 사이트 운영을 위해 일부 광고가 표시될 수 있습니다.</dd>
+  </dl>
+
+  <div class="note">※ 본 계산 결과는 참고용입니다. 실제 성적은 학교·기관의 평가 방식과 반올림 규칙 등에 따라 달라질 수 있습니다.</div>
+</article>
+
+<footer class="site-footer">
+  <div class="nav-links">
+    <a href="index.html">홈</a>
+    <a href="about.html">소개</a>
+    <a href="privacy.html">개인정보처리방침</a>
+    <a href="terms.html">이용약관</a>
+    <a href="contact.html">연락처</a>
+  </div>
+  <p>© <span id="year">2026</span> 성적 계산기 — 학생을 위한 무료 성적 산출·시각화 도구</p>
+  <p class="disclaimer">본 사이트의 계산 결과는 참고용이며 실제 학교/기관의 평가와 다를 수 있습니다.</p>
+</footer>
+
+<script>
+/* ---------------- 설정 ---------------- */
+const SECTIONS = [
+  { id:'mid',   name:'중간고사',   type:'exam', weight:30 },
+  { id:'perf1', name:'수행평가 1', type:'perf', weight:20 },
+  { id:'perf2', name:'수행평가 2', type:'perf', weight:20 },
+  { id:'final', name:'기말고사',   type:'exam', weight:30 },
+];
+
+// 등급 컷오프 (이상 기준). 편집 가능하게 하려면 여기 숫자만 바꾸세요.
+const GRADES = [
+  { letter:'A', min:90, color:'var(--gradeA)' },
+  { letter:'B', min:80, color:'var(--gradeB)' },
+  { letter:'C', min:70, color:'var(--gradeC)' },
+  { letter:'D', min:60, color:'var(--gradeD)' },
+  { letter:'E', min:0,  color:'var(--gradeF)' },
+];
+
+/* 시뮬레이터에서 사용자가 선택한 목표 등급 */
+let projTarget = null;
+
+/* 상태: 각 섹션의 입력값 */
+const state = {};
+SECTIONS.forEach(s=>{
+  state[s.id] = s.type==='exam'
+    ? { mode:'split', objScore:'', objMax:80, descScore:'', descMax:20, score:'', max:100, weight:s.weight }
+    : { score:'', max:100, weight:s.weight };
+});
+
+/* ---------------- 렌더: 반영 비율 ---------------- */
+function renderWeights(){
+  const body = document.getElementById('weightBody');
+  body.innerHTML = '';
+  SECTIONS.forEach(s=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="name-cell">${s.name}</td>
+      <td><input class="num" type="number" min="0" max="100" data-wt="${s.id}" value="${state[s.id].weight}"> %</td>`;
+    body.appendChild(tr);
+  });
+  body.querySelectorAll('input[data-wt]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      state[e.target.dataset.wt].weight = num(e.target.value);
+      // 점수 카드의 가중치 뱃지도 갱신
+      const badge = document.querySelector(`.wt[data-wtbadge="${e.target.dataset.wt}"]`);
+      if(badge) badge.textContent = '반영 '+ (num(e.target.value)||0) +'%';
+      recompute();
+    });
+  });
+  updateWeightSum();
+}
+function updateWeightSum(){
+  const sum = SECTIONS.reduce((a,s)=>a+(num(state[s.id].weight)||0),0);
+  const el = document.getElementById('weightSum');
+  const ok = Math.abs(sum-100)<0.001;
+  el.className = 'weight-sum ' + (ok?'ok':'bad');
+  el.innerHTML = `반영 비율 합계 : <b>${fmt(sum)}%</b> ${ok?'✓':'(100%가 되어야 정확히 계산됩니다)'}`;
+}
+
+/* ---------------- 렌더: 점수 카드 ---------------- */
+function renderCards(){
+  const wrap = document.getElementById('scoreCards');
+  wrap.innerHTML = '';
+  SECTIONS.forEach(s=>{
+    const st = state[s.id];
+    const card = document.createElement('div');
+    card.className='card';
+    let inner = `<div class="card-head">
+        <span class="nm">${s.name}</span>
+        <span class="wt" data-wtbadge="${s.id}">반영 ${st.weight}%</span>`;
+    if(s.type==='exam'){
+      inner += `<div class="toggle" data-toggle="${s.id}">
+          <button data-mode="split" class="${st.mode==='split'?'active':''}">객관식·서술형 분리</button>
+          <button data-mode="combined" class="${st.mode==='combined'?'active':''}">통합 입력</button>
+        </div>`;
+    }
+    inner += `</div><div class="card-body" data-body="${s.id}"></div>`;
+    card.innerHTML = inner;
+    wrap.appendChild(card);
+    renderCardBody(s);
+  });
+
+  // 토글 이벤트
+  wrap.querySelectorAll('[data-toggle]').forEach(tg=>{
+    tg.querySelectorAll('button').forEach(b=>{
+      b.addEventListener('click',()=>{
+        const id = tg.dataset.toggle;
+        state[id].mode = b.dataset.mode;
+        tg.querySelectorAll('button').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+        renderCardBody(SECTIONS.find(x=>x.id===id));
+        recompute();
+      });
+    });
+  });
+}
+
+function renderCardBody(s){
+  const st = state[s.id];
+  const body = document.querySelector(`[data-body="${s.id}"]`);
+  if(s.type==='perf'){
+    body.innerHTML = `
+      <div class="score-line">
+        <label>획득 점수</label>
+        <input class="num wide" type="number" min="0" data-f="${s.id}:score" value="${st.score}">
+        <span class="sep">/</span>
+        <input class="num wide" type="number" min="1" data-f="${s.id}:max" value="${st.max}">
+        <span>점</span>
+        <span class="res" data-res="${s.id}">–</span>
+      </div>`;
+  } else if(st.mode==='split'){
+    body.innerHTML = `
+      <div class="perf-grid">
+        <div class="score-line">
+          <label>객관식</label>
+          <input class="num" type="number" min="0" data-f="${s.id}:objScore" value="${st.objScore}">
+          <span class="sep">/</span>
+          <input class="num" type="number" min="0" data-f="${s.id}:objMax" value="${st.objMax}">
+        </div>
+        <div class="score-line">
+          <label>서술형</label>
+          <input class="num" type="number" min="0" data-f="${s.id}:descScore" value="${st.descScore}">
+          <span class="sep">/</span>
+          <input class="num" type="number" min="0" data-f="${s.id}:descMax" value="${st.descMax}">
+        </div>
+      </div>
+      <div class="score-line"><label>시험 점수</label>
+        <small style="color:var(--ink-soft);font-size:11px;">객관식 만점 + 서술형 만점 = 100 (자동 보정)</small>
+        <span class="res" data-res="${s.id}">–</span></div>`;
+  } else {
+    body.innerHTML = `
+      <div class="score-line">
+        <label>획득 점수</label>
+        <input class="num wide" type="number" min="0" data-f="${s.id}:score" value="${st.score}">
+        <span class="sep">/</span>
+        <input class="num wide" type="number" min="1" data-f="${s.id}:max" value="${st.max}">
+        <span>점</span>
+        <span class="res" data-res="${s.id}">–</span>
+      </div>`;
+  }
+  body.querySelectorAll('input[data-f]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const [id,field] = e.target.dataset.f.split(':');
+      state[id][field] = e.target.value;
+      // 시험 분리 모드: 객관식 만점 + 서술형 만점 = 100 으로 자동 보정
+      if(field==='objMax' || field==='descMax'){
+        const other = field==='objMax' ? 'descMax' : 'objMax';
+        const v = num(e.target.value);
+        const comp = clamp(100 - v); // 0~100 범위
+        state[id][other] = comp;
+        const otherInput = body.querySelector(`input[data-f="${id}:${other}"]`);
+        if(otherInput) otherInput.value = comp;
+      }
+      recompute();
+    });
+  });
+}
+
+/* ---------------- 계산 ---------------- */
+function sectionPct(s){
+  const st = state[s.id];
+  if(s.type==='perf' || (s.type==='exam' && st.mode==='combined')){
+    const sc = num(st.score), mx = num(st.max);
+    if(mx<=0 || st.score==='' ) return null;
+    return clamp(sc/mx*100);
+  } else { // exam split — 입력된 영역만으로 예상 계산 (한쪽만 입력해도 결과 산출)
+    const hasObj = st.objScore!=='', hasDesc = st.descScore!=='';
+    if(!hasObj && !hasDesc) return null;
+    let sc=0, mx=0;
+    if(hasObj){ sc+=num(st.objScore); mx+=num(st.objMax); }
+    if(hasDesc){ sc+=num(st.descScore); mx+=num(st.descMax); }
+    if(mx<=0) return null;
+    return clamp(sc/mx*100);
+  }
+}
+
+/* 시험 분리 모드에서 한쪽 영역만 입력 → 예상 점수임을 표시 */
+function isEstimated(s){
+  if(s.type!=='exam' || state[s.id].mode!=='split') return false;
+  const st = state[s.id];
+  return (st.objScore!=='') !== (st.descScore!==''); // 정확히 한쪽만 입력
+}
+
+/* 항목의 환산 만점(통합·수행=만점, 시험 분리=객관식+서술형) */
+function sectionMax(s){
+  const st = state[s.id];
+  if(s.type==='exam' && st.mode==='split') return num(st.objMax)+num(st.descMax);
+  return num(st.max);
+}
+
+function recompute(){
+  updateWeightSum();
+  let known=0, enteredCount=0, remainingWeight=0;
+  const rows=[];
+  SECTIONS.forEach(s=>{
+    const pct = sectionPct(s);
+    const w = num(state[s.id].weight)||0;
+    const resEl = document.querySelector(`[data-res="${s.id}"]`);
+    if(pct===null){
+      if(resEl) resEl.textContent='–';
+      remainingWeight += w;
+      rows.push({name:s.name, pct:null, w, contrib:0});
+    } else {
+      enteredCount++;
+      const est = isEstimated(s);
+      if(resEl) resEl.textContent = fmt(pct)+'점' + (est?' (예상)':'');
+      const contrib = pct*w/100;
+      known += contrib;
+      rows.push({name:s.name, pct, w, contrib, est});
+    }
+  });
+
+  const anyInput = enteredCount>0;
+  const allEntered = remainingWeight<=0 && anyInput;
+  const minFinal = known;                       // 남은 항목 0점일 때
+  const maxFinal = known + remainingWeight;      // 남은 항목 100%일 때
+
+  const scoreLabel = document.getElementById('scoreLabel');
+  const finalScoreEl = document.getElementById('finalScore');
+  const stamp = document.getElementById('gradeStamp');
+  const gl = document.getElementById('gradeLetter');
+  const finalDesc = document.getElementById('finalDesc');
+
+  if(!anyInput){
+    scoreLabel.textContent='최종 점수';
+    finalScoreEl.textContent='0.0';
+    gl.textContent='–'; stamp.style.color='var(--ink-soft)';
+    finalDesc.textContent='점수를 입력하면 자동으로 계산됩니다.';
+  } else if(allEntered){
+    const grade = gradeFor(minFinal);
+    scoreLabel.textContent='최종 점수';
+    finalScoreEl.textContent = fmt(minFinal);
+    gl.textContent = grade.letter; stamp.style.color = grade.color;
+    finalDesc.textContent = gradeDesc(grade.letter, minFinal);
+  } else {
+    // 일부만 입력 → 현재 누적 + 예측
+    scoreLabel.textContent='현재 누적 점수';
+    finalScoreEl.textContent = fmt(known);
+    const bestGrade = gradeFor(maxFinal);
+    gl.textContent = bestGrade.letter; stamp.style.color = bestGrade.color;
+    finalDesc.innerHTML = `미입력 ${SECTIONS.length-enteredCount}개 · 달성 가능 범위 <b>${fmt(minFinal)} ~ ${fmt(maxFinal)}점</b><br>도장은 <b>최고 가능 등급</b>을 표시합니다.`;
+  }
+
+  // 세부 내역
+  const bd = document.getElementById('breakdown');
+  bd.innerHTML = rows.map(r=>`
+    <div class="brow"><span>${r.name} <small style="color:var(--ink-soft)">(반영 ${fmt(r.w)}%)</small></span>
+      <b>${r.pct===null?'미입력':fmt(r.pct)+'점 → +'+fmt(r.contrib)+'점'+(r.est?' (예상)':'')}</b></div>`).join('');
+
+  updateCalcNote({anyInput, allEntered, enteredCount});
+  renderProjection({anyInput, allEntered, known, remainingWeight, minFinal, maxFinal, enteredCount});
+  updateCharts(rows, anyInput);
+}
+
+/* 결과 계산 버튼 옆 안내 (미입력 정보) */
+function updateCalcNote({anyInput, allEntered, enteredCount}){
+  const note = document.getElementById('calcNote');
+  if(!note) return;
+  const missing = SECTIONS.length - enteredCount;
+  note.classList.remove('complete');
+  if(!anyInput){
+    note.innerHTML = '점수를 입력한 뒤 <b>결과 계산하기</b>를 눌러주세요.';
+  } else if(allEntered){
+    note.classList.add('complete');
+    note.innerHTML = '✅ 모든 항목 입력 완료! 계산하면 <b>최종 등급이 확정</b>됩니다.';
+  } else {
+    note.innerHTML = `📝 참고: <b>미입력 항목 ${missing}개</b>가 있어요. 미입력 항목은 <b>"아직 보지 않은 시험"</b>으로 처리되며, 계산하면 <b>목표 시뮬레이터</b>에서 그 항목들에 필요한 점수(예: A를 받으려면 몇 점)를 알려드립니다.`;
+  }
+}
+
+/* 목표 점수 시뮬레이터 */
+function renderProjection({anyInput, allEntered, known, remainingWeight, minFinal, maxFinal, enteredCount}){
+  const box = document.getElementById('projection');
+  if(!anyInput || allEntered || remainingWeight<=0){ box.style.display='none'; return; }
+  box.style.display='block';
+
+  const span = Math.max(maxFinal-minFinal, 0.001);
+  const fillL = (minFinal/100)*100, fillW = ((maxFinal-minFinal)/100)*100;
+
+  const rowsHtml = GRADES.filter(g=>g.min>0).map(g=>{
+    const target = g.min;
+    // 남은 항목 평균 필요 득점률
+    const needAvg = (target - known) * 100 / remainingWeight;
+    let status, statusClass, needText;
+    if(target <= minFinal){
+      status='이미 확정 ✓'; statusClass='st-locked'; needText='—';
+    } else if(target > maxFinal + 1e-9){
+      status='도달 불가'; statusClass='st-imposs'; needText='—';
+    } else {
+      status='가능'; statusClass='st-need'; needText='평균 '+fmt(needAvg)+'점 이상';
+    }
+    return `<tr>
+      <td><span class="gbadge" style="background:${g.color}">${g.letter}</span> &nbsp;${target}점 이상</td>
+      <td class="goal-need">${needText}</td>
+      <td><span class="goal-status ${statusClass}">${status}</span></td>
+    </tr>`;
+  }).join('');
+
+  // 남은(미입력) 항목 목록
+  const remaining = SECTIONS.filter(s=>sectionPct(s)===null);
+
+  // 목표 등급 선택 기본값: 아직 확정되지 않은 등급 중 가장 높은(달성 가능) 등급
+  const selectable = GRADES.filter(g=>g.min>0);
+  if(!projTarget || !selectable.some(g=>g.letter===projTarget)){
+    const def = selectable.find(g=>g.min>minFinal && g.min<=maxFinal) || selectable[0];
+    projTarget = def.letter;
+  }
+  const targetGrade = selectable.find(g=>g.letter===projTarget);
+  const target = targetGrade.min;
+  const needAvg = (target - known) * 100 / remainingWeight;
+
+  // 목표 등급 선택 버튼
+  const pickerBtns = selectable.map(g=>{
+    const reachable = g.min <= maxFinal + 1e-9;
+    const active = g.letter===projTarget;
+    return `<button data-goal="${g.letter}" class="${active?'active':''}"
+      style="${active?`background:${g.color};`:''}" ${reachable?'':'disabled'}>${g.letter}</button>`;
+  }).join('');
+
+  // 선택한 목표에 대한 항목별 필요 점수
+  let needBlock;
+  if(target <= minFinal){
+    needBlock = `<div class="need-msg ok">✓ <b>${projTarget}등급은 이미 확정</b>입니다. 남은 항목을 모두 0점 받아도 ${target}점 이상이 됩니다.</div>`;
+  } else if(target > maxFinal + 1e-9){
+    needBlock = `<div class="need-msg no">✗ 남은 항목을 모두 만점 받아도 최대 <b>${fmt(maxFinal)}점</b>이라 <b>${projTarget}등급(${target}점)</b>에는 도달할 수 없습니다.</div>`;
+  } else {
+    const items = remaining.map(s=>{
+      const max = sectionMax(s);
+      const needRaw = Math.min(max, Math.ceil(needAvg/100*max*10)/10); // 0.1점 단위 올림, 만점 제한
+      return `<div class="need-item">
+        <span class="nin">${s.name}</span>
+        <span class="nmax">만점 ${fmt(max)}점</span>
+        <span class="nval">${fmt(needRaw)}점 <small>이상</small></span>
+      </div>`;
+    }).join('');
+    needBlock = `
+      <div class="need-msg ok" style="background:var(--accent-soft);color:var(--accent);">
+        <b>${projTarget}등급(${target}점 이상)</b> 달성 조건 — 남은 항목에서 각각 평균 <b>${fmt(needAvg)}점</b> 이상(100점 환산)</div>
+      <div class="need-list">${items}</div>`;
+  }
+
+  box.innerHTML = `
+    <p class="ph">🎯 목표 점수 시뮬레이터</p>
+    <p class="psub">${enteredCount}개 항목 입력 완료 · 남은 항목 반영 비율 <b>${fmt(remainingWeight)}%</b><br>
+      지금까지 누적 <b>${fmt(known)}점</b> · 최종 달성 가능 범위 <b>${fmt(minFinal)} ~ ${fmt(maxFinal)}점</b></p>
+    <div class="range-bar">
+      <div class="fill" style="left:${fillL}%;width:${fillW}%"></div>
+      <div class="now" style="left:${(minFinal/100)*100}%"></div>
+    </div>
+    <table class="goal-table">
+      <thead><tr><th>목표 등급</th><th>남은 항목 평균 필요 점수</th><th>달성 여부</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    <div class="goal-picker">
+      <div class="pl">🎯 목표 등급을 선택하면 남은 항목에서 받아야 할 실제 점수를 알려드려요</div>
+      <div class="pbtns" id="goalBtns">${pickerBtns}</div>
+    </div>
+    ${needBlock}
+    <p class="psub" style="margin:14px 0 0;">※ 남은 모든 항목에서 동일한 득점률을 가정한 값입니다. 한 항목만 남았다면 그 점수가 그 시험에서 받아야 할 점수입니다.</p>`;
+
+  // 목표 등급 버튼 이벤트
+  box.querySelectorAll('#goalBtns button[data-goal]').forEach(b=>{
+    b.addEventListener('click',()=>{ projTarget = b.dataset.goal; recompute(); });
+  });
+}
+
+function gradeFor(score){ return GRADES.find(g=>score>=g.min) || GRADES[GRADES.length-1]; }
+function gradeDesc(letter, score){
+  const map={A:'아주 우수한 성취입니다 🎉',B:'우수한 성취입니다 👍',C:'양호한 수준입니다.',D:'보완이 필요합니다.',E:'많은 노력이 필요합니다.'};
+  return `최종 ${fmt(score)}점 · ${map[letter]||''}`;
+}
+
+/* ---------------- 차트 ---------------- */
+let barChart, donutChart;
+function initCharts(){
+  const palette = ['#3a6ea5','#2e7d57','#b78a1f','#c0532b'];
+  barChart = new Chart(document.getElementById('barChart'),{
+    type:'bar',
+    data:{labels:SECTIONS.map(s=>s.name),
+      datasets:[{label:'득점률',data:SECTIONS.map(()=>0),
+        backgroundColor:palette,borderRadius:6,maxBarThickness:46}]},
+    options:{plugins:{legend:{display:false}},
+      scales:{
+        y:{beginAtZero:true,max:100,ticks:{callback:v=>v+'점'},grid:{}},
+        x:{ticks:{},grid:{display:false}}
+      },
+      animation:{duration:600,easing:'easeOutQuart'}}
+  });
+  donutChart = new Chart(document.getElementById('donutChart'),{
+    type:'doughnut',
+    data:{labels:SECTIONS.map(s=>s.name),
+      datasets:[{data:SECTIONS.map(()=>0),backgroundColor:palette,borderColor:'#fffdf8',borderWidth:2}]},
+    options:{cutout:'58%',plugins:{legend:{position:'bottom',labels:{font:{size:11},boxWidth:12}}},
+      animation:{duration:400}}
+  });
+}
+function updateCharts(rows, anyInput){
+  if(!barChart) return;
+  barChart.data.datasets[0].data = rows.map(r=>r.pct===null?0:+r.pct.toFixed(1));
+  barChart.update();
+  donutChart.data.datasets[0].data = rows.map(r=>+r.contrib.toFixed(2));
+  donutChart.update();
+}
+
+/* 차트 색상을 현재 테마에 맞춤 */
+function applyChartTheme(){
+  if(!barChart) return;
+  const cs = getComputedStyle(document.documentElement);
+  const ink = cs.getPropertyValue('--ink').trim();
+  const inkSoft = cs.getPropertyValue('--ink-soft').trim();
+  const line = cs.getPropertyValue('--line').trim();
+  const paper = cs.getPropertyValue('--paper').trim();
+  barChart.options.scales.y.ticks.color = inkSoft;
+  barChart.options.scales.x.ticks.color = ink;
+  barChart.options.scales.y.grid.color = line;
+  barChart.options.scales.x.grid.color = line;
+  barChart.update();
+  donutChart.data.datasets[0].borderColor = paper;
+  donutChart.options.plugins.legend.labels.color = ink;
+  donutChart.update();
+}
+
+/* ---------------- 등급 안내 ---------------- */
+function renderGradeScale(){
+  document.getElementById('gradeScale').innerHTML = GRADES.map((g,i)=>{
+    const hi = i===0? '' : (GRADES[i-1].min-0.1);
+    const range = i===0? `${g.min}점 이상` : `${g.min}~${GRADES[i-1].min-1}점`;
+    return `<span><i style="background:${g.color}"></i>${g.letter} · ${range}</span>`;
+  }).join('');
+  document.getElementById('cutoffHint').textContent = '기준: A 90 / B 80 / C 70 / D 60';
+}
+
+/* ---------------- PDF ---------------- */
+document.getElementById('pdfBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('pdfBtn');
+  const old = btn.textContent; btn.textContent='PDF 생성 중...'; btn.disabled=true;
+  if(!revealed){ recompute(); revealResults(false); }   // 결과를 PDF에 포함
+  themeBtn.style.visibility='hidden';                    // 토글 버튼은 캡처에서 제외
+  try{
+    const sheet = document.getElementById('sheet');
+    const paperBg = getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() || '#fffdf8';
+    const canvas = await html2canvas(sheet,{scale:2,backgroundColor:paperBg,useCORS:true});
+    const img = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p','mm','a4');
+    const pw = pdf.internal.pageSize.getWidth();
+    const ph = pdf.internal.pageSize.getHeight();
+    const w = pw-16;
+    const h = canvas.height * w / canvas.width;
+    let pos=8, left=8, remaining=h;
+    // 여러 페이지 분할
+    if(h<=ph-16){
+      pdf.addImage(img,'PNG',left,pos,w,h);
+    } else {
+      let sY=0; const pageImgH=ph-16;
+      const ratio = canvas.width/w; // px per mm
+      const pageCanvasH = pageImgH*ratio;
+      let page=0;
+      while(sY < canvas.height){
+        const slice = document.createElement('canvas');
+        slice.width = canvas.width;
+        slice.height = Math.min(pageCanvasH, canvas.height-sY);
+        slice.getContext('2d').drawImage(canvas,0,sY,canvas.width,slice.height,0,0,canvas.width,slice.height);
+        const sImg = slice.toDataURL('image/png');
+        const sH = slice.height/ratio;
+        if(page>0) pdf.addPage();
+        pdf.addImage(sImg,'PNG',left,8,w,sH);
+        sY += slice.height; page++;
+      }
+    }
+    const subj = (document.getElementById('subjectName').value||'성적표').trim();
+    pdf.save(`${subj}_성적표.pdf`);
+  }catch(err){ alert('PDF 생성 중 오류가 발생했습니다: '+err.message); }
+  finally{ btn.textContent=old; btn.disabled=false; themeBtn.style.visibility=''; }
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  if(!confirm('모든 입력을 초기화할까요?')) return;
+  SECTIONS.forEach(s=>{
+    state[s.id] = s.type==='exam'
+      ? { mode:'split', objScore:'', objMax:80, descScore:'', descMax:20, score:'', max:100, weight:s.weight }
+      : { score:'', max:100, weight:s.weight };
+  });
+  document.getElementById('subjectName').value='';
+  projTarget=null; revealed=false;
+  document.getElementById('results').classList.add('hidden');
+  document.getElementById('results').classList.remove('show');
+  document.getElementById('calcBtn').textContent='📊 결과 계산하기';
+  if(location.hash) history.replaceState(null,'',location.pathname);
+  renderWeights(); renderCards(); recompute();
+});
+
+/* ---------------- 유틸 ---------------- */
+function num(v){ const n=parseFloat(v); return isNaN(n)?0:n; }
+function clamp(v){ return Math.max(0,Math.min(100,v)); }
+function fmt(v){ return (Math.round(v*10)/10).toFixed(1).replace(/\.0$/,''); }
+
+/* ---------------- 테마 (다크/라이트) ---------------- */
+const themeBtn = document.getElementById('themeToggle');
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  themeBtn.textContent = t==='dark' ? '☀️' : '🌙';
+  themeBtn.title = (t==='dark'?'라이트':'다크') + ' 모드로 전환';
+  try{ localStorage.setItem('grade-theme', t); }catch(e){}
+  applyChartTheme();
+}
+themeBtn.addEventListener('click', ()=>{
+  const cur = document.documentElement.getAttribute('data-theme')==='dark' ? 'dark':'light';
+  setTheme(cur==='dark' ? 'light' : 'dark');
+});
+
+/* ---------------- 결과 계산 / 펼치기 애니메이션 ---------------- */
+let revealed = false, countRAF;
+function animateCount(el, to){
+  cancelAnimationFrame(countRAF);
+  const dur=750, start=performance.now();
+  (function step(now){
+    const t=Math.min((now-start)/dur,1), e=1-Math.pow(1-t,3);
+    el.textContent = fmt(to*e);
+    if(t<1) countRAF=requestAnimationFrame(step); else el.textContent=fmt(to);
+  })(performance.now());
+}
+function revealResults(animate){
+  const results = document.getElementById('results');
+  results.classList.remove('hidden');
+  revealed = true;
+  document.getElementById('calcBtn').textContent = '🔄 결과 다시 계산';
+  if(!animate) return;
+  results.classList.remove('show'); void results.offsetWidth; results.classList.add('show');
+  const stamp = document.getElementById('gradeStamp');
+  stamp.classList.remove('pop'); void stamp.offsetWidth; stamp.classList.add('pop');
+  const fs = document.getElementById('finalScore');
+  animateCount(fs, parseFloat(fs.textContent)||0);
+  const sb = document.querySelector('.score-big');
+  sb.classList.remove('bump'); void sb.offsetWidth; setTimeout(()=>sb.classList.add('bump'),560);
+  if(barChart){ barChart.update(); donutChart.update(); }
+  setTimeout(()=>results.scrollIntoView({behavior:'smooth',block:'start'}), 60);
+}
+document.getElementById('calcBtn').addEventListener('click', ()=>{ recompute(); revealResults(true); });
+
+/* ---------------- 공유 ---------------- */
+let pendingSubject = '';
+function buildShareUrl(){
+  const payload = { v:1, subject:document.getElementById('subjectName').value, state };
+  const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  return location.href.split('#')[0] + '#d=' + b64;
+}
+function restoreFromHash(){
+  const m = location.hash.match(/#d=(.+)$/);
+  if(!m) return false;
+  try{
+    const payload = JSON.parse(decodeURIComponent(escape(atob(m[1]))));
+    if(payload && payload.state) SECTIONS.forEach(s=>{ if(payload.state[s.id]) Object.assign(state[s.id], payload.state[s.id]); });
+    if(payload && typeof payload.subject==='string') pendingSubject = payload.subject;
+    return true;
+  }catch(e){ return false; }
+}
+function toast(msg){
+  const t = document.createElement('div');
+  t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>{ t.style.transition='opacity .4s, transform .4s'; t.style.opacity='0'; t.style.transform='translate(-50%,14px)'; setTimeout(()=>t.remove(),420); }, 2300);
+}
+async function shareReport(){
+  // 입력이 전혀 없으면 안내만 하고 종료 (에러 방지)
+  const hasInput = SECTIONS.some(s=>sectionPct(s)!==null);
+  const subjVal = document.getElementById('subjectName').value.trim();
+  if(!hasInput && !subjVal){
+    toast('⚠️ 공유할 내용이 없어요. 과목명과 점수를 먼저 입력해 주세요.');
+    return;
+  }
+  let url;
+  try{ url = buildShareUrl(); }
+  catch(e){ toast('공유 링크를 만들지 못했어요.'); return; }
+  const subj = subjVal || '성적표';
+
+  // 1) 네이티브 공유 시트 (모바일 등)
+  if(navigator.share){
+    try{ await navigator.share({ title:`${subj} 성적표`, text:'내 성적표를 확인해보세요 📄', url }); return; }
+    catch(e){ if(e && e.name==='AbortError') return; /* 그 외에는 아래 폴백으로 */ }
+  }
+  // 2) 클립보드 복사 (지원 + 보안 컨텍스트일 때만)
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    try{ await navigator.clipboard.writeText(url); toast('🔗 공유 링크를 복사했어요! 붙여넣어 전달하세요.'); return; }
+    catch(e){ /* 권한 거부 등 → 아래 폴백 */ }
+  }
+  // 3) 최종 폴백: 직접 복사하도록 표시
+  try{ window.prompt('아래 링크를 복사해 공유하세요', url); }
+  catch(e){ toast('공유 링크 생성됨 — 콘솔을 확인하세요.'); console.log('공유 링크:', url); }
+}
+document.getElementById('shareBtn').addEventListener('click', shareReport);
+
+/* ---------------- 초기화 ---------------- */
+const today=new Date();
+document.getElementById('dateNote').textContent =
+  `작성일 ${today.getFullYear()}. ${today.getMonth()+1}. ${today.getDate()} · Grade Sheet`;
+
+const savedTheme = (()=>{ try{ return localStorage.getItem('grade-theme'); }catch(e){ return null; } })();
+const initialTheme = savedTheme || ((window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+
+const restored = restoreFromHash();   // state 복원은 카드 렌더 전에
+renderWeights();
+renderCards();
+renderGradeScale();
+initCharts();
+setTheme(initialTheme);                // 차트 생성 후 테마 적용
+if(restored) document.getElementById('subjectName').value = pendingSubject;
+recompute();
+if(restored) revealResults(true);      // 공유 링크로 열면 결과 바로 표시
+</script>
+</body>
+</html>
