@@ -1,5 +1,4 @@
 User-agent: *
 Allow: /
 
-# 배포 도메인으로 교체하세요
-Sitemap: https://example.com/sitemap.xml
+Sitemap: https://gradecalculator-5ui.pages.dev/sitemap.xml
